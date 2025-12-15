@@ -1,0 +1,16 @@
+[package]
+name = "yt-dlp-api"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.48", features = ["full"] }
+tokio-util = {version = "0.7", features = ["io"] }
+axum = {version = "0.8", features = ["macros"]}
+log = "0.4"
+env_logger = "0.11"
+serde = { version = "1.0", features = ["derive"] }
+config = "0.15"
+anyhow = "1.0"
+validator = {version = "0.20", features = ["derive"]}
+thiserror = "2.0"
