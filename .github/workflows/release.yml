@@ -3,29 +3,33 @@ name: Release build
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-
-env:
-  CARGO_TERM_COLOR: always
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     permissions:
       contents: write
 
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            suffix: x64
+          - os: ubuntu-24.04-arm
+            suffix: arm64
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --release --verbose
-    - name: Create archive for Linux
-      run: |
-        cd ./target/release
-        tar czf yt-dlp-linux.tar.gz yt-dlp-api
-    - name: Create release
-      uses: softprops/action-gh-release@v2
-      with:
-        name: Release ${{ github.ref_name }}
-        files: |
-          ./target/release/yt-dlp-linux.tar.gz
+      - uses: actions/checkout@v4
+
+      - run: cargo build --release
+
+      - run: |
+          cd target/release
+          tar czf yt-dlp-linux-${{ matrix.suffix }}.tar.gz yt-dlp-api
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          files: target/release/yt-dlp-linux-${{ matrix.suffix }}.tar.gz
