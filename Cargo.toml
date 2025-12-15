@@ -14,3 +14,4 @@ config = "0.15"
 anyhow = "1.0"
 validator = {version = "0.20", features = ["derive"]}
 thiserror = "2.0"
+mime_guess = "2.0"

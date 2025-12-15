@@ -1,11 +1,5 @@
-use crate::{dto::ErrorDTO, state::AppState, validated_query::ValidatedQuery};
-use axum::{
-    Json,
-    body::Body,
-    extract::State,
-    http::{StatusCode, header},
-    response::IntoResponse,
-};
+use crate::{errors::ApiError, state::AppState, validated_query::ValidatedQuery};
+use axum::{body::Body, extract::State, http::header, response::IntoResponse};
 use serde::Deserialize;
 use std::process::Stdio;
 use tokio::process::Command;
@@ -26,7 +20,8 @@ pub async fn download_route(
     // passing url from user input is safe (at least on UNIX systems)
 
     // receiving filename
-    let filename_output = match Command::new("yt-dlp")
+    let filename_output = match Command::new(&state.config.yt_dlp_path)
+        .arg("-q")
         .arg("--print")
         .arg("filename")
         .arg("--restrict-filenames")
@@ -34,6 +29,7 @@ pub async fn download_route(
         .arg("bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
         .arg("--max-filesize")
         .arg(&state.config.max_file_size)
+        .arg("--")
         .arg(&payload.url)
         .output()
         .await
@@ -45,52 +41,31 @@ pub async fn download_route(
                 &payload.url
             );
 
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorDTO::new("sorry, cannot download this")),
-            )
-                .into_response();
+            return ApiError::CannotDownloadInternal.into_response();
         }
     };
 
-    let filename = match String::from_utf8(filename_output.stdout) {
-        Ok(v) => {
-            let filename = v.trim().to_string();
+    let filename = String::from_utf8_lossy(&filename_output.stdout)
+        .trim()
+        .to_string();
 
-            if filename.is_empty() {
-                log::error!("filename is empty for {}", &payload.url);
+    if filename.is_empty() {
+        log::error!("filename is empty for {}", &payload.url);
 
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorDTO::new("sorry, cannot download this")),
-                )
-                    .into_response();
-            }
-
-            filename
-        }
-        Err(err) => {
-            log::error!(
-                "cannot fetch a filename from yt-dlp for {} cause of {err}",
-                &payload.url
-            );
-
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorDTO::new("sorry, cannot download this")),
-            )
-                .into_response();
-        }
-    };
+        return ApiError::CannotDownloadBadRequest.into_response();
+    }
 
     // downloading the media
-    match Command::new("yt-dlp")
+    // we are trying to download the best quality MP4 variant. if there is no such, just the best one
+    match Command::new(&state.config.yt_dlp_path)
+        .arg("-q")
         .arg("-o")
         .arg("-")
         .arg("-f")
         .arg("bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
         .arg("--max-filesize")
         .arg(&state.config.max_file_size)
+        .arg("--")
         .arg(&payload.url)
         .stdout(Stdio::piped())
         .spawn()
@@ -100,10 +75,13 @@ pub async fn download_route(
             let stream = ReaderStream::new(stdout);
 
             let content_disposition = format!("attachment; filename=\"{}\"", filename);
+            let mime_type = mime_guess::from_path(&filename)
+                .first_or_octet_stream()
+                .to_string();
 
             (
                 [
-                    (header::CONTENT_TYPE, "video/mp4".to_string()),
+                    (header::CONTENT_TYPE, mime_type),
                     (header::CONTENT_DISPOSITION, content_disposition),
                 ],
                 Body::from_stream(stream),
@@ -116,11 +94,7 @@ pub async fn download_route(
                 &payload.url
             );
 
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorDTO::new("sorry, cannot download this")),
-            )
-                .into_response()
+            ApiError::CannotDownloadInternal.into_response()
         }
     }
 }

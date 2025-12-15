@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub struct ApiConfig {
     pub server_url: String,
     pub max_file_size: String,
+    pub yt_dlp_path: String,
 }
 
 pub fn load_config(path: &str) -> anyhow::Result<ApiConfig> {

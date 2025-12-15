@@ -1,5 +1,5 @@
 mod config;
-mod dto;
+mod errors;
 mod handlers;
 mod state;
 mod validated_query;
