@@ -1,3 +1,5 @@
 server_url="0.0.0.0:8000"
 max_file_size="100m"
 yt_dlp_path="yt-dlp"
+fetch_filename_timeout=10 # in seconds
+fetch_media_timeout=300 # in seconds; should be greater than the timeout allowed by web servers

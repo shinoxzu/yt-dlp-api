@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
 
+    env:
+      DIST_DIR: yt-dlp-linux-${{ matrix.suffix }}
+
     permissions:
       contents: write
 
@@ -26,10 +29,13 @@ jobs:
       - run: cargo build --release
 
       - run: |
-          cd target/release
-          tar czf yt-dlp-linux-${{ matrix.suffix }}.tar.gz yt-dlp-api
+          mkdir "$DIST_DIR"
+          cp target/release/yt-dlp-api "$DIST_DIR/"
+          cp config.example.toml "$DIST_DIR/"
+          cp README.md "$DIST_DIR/"
+          tar czf "$DIST_DIR.tar.gz" "$DIST_DIR"
 
       - uses: softprops/action-gh-release@v2
         with:
           name: Release ${{ github.ref_name }}
-          files: target/release/yt-dlp-linux-${{ matrix.suffix }}.tar.gz
+          files: ${{ env.DIST_DIR }}.tar.gz

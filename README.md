@@ -1,6 +1,6 @@
 # yt-dlp-api
 
-yt-dlp-api is an API that handles requests to yt-dlp to download media from various media services, such as YouTube or TikTok.
+yt-dlp-api is a small HTTP API that uses yt-dlp to download media from various platforms such as YouTube or TikTok.
 
 The API contains only one `/fetch?url=…` route that streams the media from the provided URL into the response of the request. It attempts to use the highest quality MP4 videos available, but if none are found, it defaults to the best available video.
 
@@ -15,3 +15,5 @@ You have to install [yt-dlp](https://github.com/yt-dlp/yt-dlp) as a globally ava
 3. Now the web-api will be accessible at the provided address.
 
 Note: you can also pass the config values with environment values with `YTDLP_API` prefix. For example, `YTDLP_API_SERVER_URL=localhost:5000`.
+
+**Safety note**: The API theoretically has the capability to make some calls to the internal network. Therefore, you must run it from a user with no permissions, and preferably in some kind of isolated network.

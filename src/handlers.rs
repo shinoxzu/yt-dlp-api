@@ -3,6 +3,7 @@ use axum::{body::Body, extract::State, http::header, response::IntoResponse};
 use serde::Deserialize;
 use std::process::Stdio;
 use tokio::process::Command;
+use tokio::time::{Duration, timeout};
 use tokio_util::io::ReaderStream;
 use validator::Validate;
 
@@ -17,31 +18,40 @@ pub async fn download_route(
     State(state): State<AppState>,
     ValidatedQuery(payload): ValidatedQuery<CreateFigureRequest>,
 ) -> impl IntoResponse {
-    // passing url from user input is safe (at least on UNIX systems)
+    if !payload.url.starts_with("https://") {
+        return ApiError::CannotDownloadBadRequest.into_response();
+    }
 
     // receiving filename
-    let filename_output = match Command::new(&state.config.yt_dlp_path)
-        .arg("-q")
-        .arg("--print")
-        .arg("filename")
-        .arg("--restrict-filenames")
-        .arg("-f")
-        .arg("bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
-        .arg("--max-filesize")
-        .arg(&state.config.max_file_size)
-        .arg("--")
-        .arg(&payload.url)
-        .output()
-        .await
+    let filename_output = match timeout(
+        Duration::from_secs(state.config.fetch_filename_timeout),
+        Command::new(&state.config.yt_dlp_path)
+            .arg("-q")
+            .arg("--print")
+            .arg("filename")
+            .arg("--restrict-filenames")
+            .arg("-f")
+            .arg("bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
+            .arg("--max-filesize")
+            .arg(&state.config.max_file_size)
+            .arg("--")
+            .arg(&payload.url)
+            .output(),
+    )
+    .await
     {
-        Ok(v) => v,
-        Err(err) => {
+        Ok(Ok(v)) => v,
+        Ok(Err(err)) => {
             log::error!(
                 "cannot call an yt-dlp to get a filename for {} cause of {err}",
                 &payload.url
             );
 
             return ApiError::CannotDownloadInternal.into_response();
+        }
+        Err(_) => {
+            log::warn!("yt-dlp filename timeout for {}", payload.url);
+            return ApiError::CannotDownloadTimeout.into_response();
         }
     };
 
@@ -68,11 +78,35 @@ pub async fn download_route(
         .arg("--")
         .arg(&payload.url)
         .stdout(Stdio::piped())
+        .stderr(Stdio::null())
         .spawn()
     {
         Ok(mut child) => {
-            let stdout = child.stdout.take().unwrap();
+            let stdout = match child.stdout.take() {
+                Some(v) => v,
+                None => {
+                    log::error!("stdout was not captured somehow for {}", &payload.url);
+
+                    return ApiError::CannotDownloadInternal.into_response();
+                }
+            };
             let stream = ReaderStream::new(stdout);
+
+            tokio::spawn(async move {
+                match timeout(
+                    Duration::from_secs(state.config.fetch_media_timeout),
+                    child.wait(),
+                )
+                .await
+                {
+                    Ok(Ok(_)) => (),
+                    Ok(Err(err)) => log::error!("yt-dlp wait failed: {err}"),
+                    Err(_) => {
+                        log::warn!("yt-dlp download timed out for {}", &payload.url);
+                        let _ = child.kill().await;
+                    }
+                }
+            });
 
             let content_disposition = format!("attachment; filename=\"{}\"", filename);
             let mime_type = mime_guess::from_path(&filename)

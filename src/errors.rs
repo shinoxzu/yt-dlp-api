@@ -46,6 +46,9 @@ pub enum ApiError {
 
     #[error("cannot download (bad request)")]
     CannotDownloadBadRequest,
+
+    #[error("cannot download (timeout)")]
+    CannotDownloadTimeout,
 }
 
 impl IntoResponse for ApiError {
@@ -77,6 +80,13 @@ impl IntoResponse for ApiError {
                     Json(ErrorDTO::new(
                         "sorry, cannot download this (the reason likely on our side).",
                     )),
+                )
+                    .into_response();
+            }
+            ApiError::CannotDownloadTimeout => {
+                return (
+                    StatusCode::REQUEST_TIMEOUT,
+                    Json(ErrorDTO::new("sorry, cannot download this (timeout).")),
                 )
                     .into_response();
             }
