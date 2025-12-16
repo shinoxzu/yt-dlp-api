@@ -13,7 +13,6 @@ pub struct CreateFigureRequest {
     pub url: String,
 }
 
-#[axum::debug_handler]
 pub async fn download_route(
     State(state): State<AppState>,
     ValidatedQuery(payload): ValidatedQuery<CreateFigureRequest>,

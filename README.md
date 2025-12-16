@@ -11,8 +11,9 @@ You have to install [yt-dlp](https://github.com/yt-dlp/yt-dlp) as a globally ava
 ## Running
 
 1. Create and fill a config by checking the [example file](config.example.toml), and name it, for example, `config.toml`.
-2. Run the app: `RUST_LOG=info CONFIG_PATH=config.toml ./yt-dlp-api` where `config.toml` is your config filename.
-3. Now the web-api will be accessible at the provided address.
+2. Download the latest release from the [releases page](https://github.com/shinoxzu/yt-dlp-api/releases).
+3. Run the app: `RUST_LOG=info CONFIG_PATH=config.toml ./yt-dlp-api` where `config.toml` is your config filename.
+4. Now the web-api will be accessible at the provided address.
 
 Note: you can also pass the config values with environment values with `YTDLP_API` prefix. For example, `YTDLP_API_SERVER_URL=localhost:5000`.
 
